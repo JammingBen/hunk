@@ -37,7 +37,9 @@ function deletionLineToFileLine(hunk: DiffHunk, deletionLine: number) {
     }
 
     if (deletionLine < deletionCursor + content.deletions) {
-      return additionCursor;
+      // Land on the corresponding replacement line, clamped to the last one this block adds.
+      const offset = Math.min(deletionLine - deletionCursor, Math.max(content.additions - 1, 0));
+      return additionCursor + offset;
     }
 
     deletionCursor += content.deletions;

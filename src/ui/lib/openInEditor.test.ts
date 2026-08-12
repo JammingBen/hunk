@@ -322,6 +322,42 @@ describe("open in editor helpers", () => {
     expect(spawnCalls).toEqual([["vim", "+2", join(basePath, "example.ts")]]);
   });
 
+  test("preserves the deleted line's offset within a multi-line replacement", () => {
+    const basePath = createTempDir();
+    writeFileSync(join(basePath, "example.ts"), "one\nTWO\nTHREE\nfour\n");
+    process.env.EDITOR = "vim";
+
+    const spawnCalls: string[][] = [];
+    mockSpawnSync((cmds) => {
+      spawnCalls.push(cmds);
+      return { exitCode: 0 };
+    });
+
+    const file = createTestDiffFile({
+      path: "example.ts",
+      before: "one\ntwo\nthree\nfour\n",
+      after: "one\nTWO\nTHREE\nfour\n",
+    });
+
+    expect(
+      openSelectedFileInEditor({
+        basePath,
+        file,
+        lineCursor: {
+          fileId: file.id,
+          hunkIndex: 0,
+          target: { side: "old", line: 3 },
+        },
+        renderer: createRenderer(),
+        selectedHunk: file.metadata.hunks[0],
+      }),
+    ).toBeNull();
+
+    // Old line 3 ("three") is the second of two replaced lines, so the editor
+    // lands on the second replacement line ("THREE") rather than the first.
+    expect(spawnCalls).toEqual([["vim", "+3", join(basePath, "example.ts")]]);
+  });
+
   test("falls back to the selected hunk when the cursor is in another file", () => {
     const basePath = createTempDir();
     writeFileSync(join(basePath, "example.ts"), "const value = 1;\n");
